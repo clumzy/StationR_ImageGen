@@ -304,8 +304,8 @@ if __name__ == "__main__":
             "Il faut que je me dépense", 
             "Me perdre dans la masse",
             "Un kick sec et rapide",
-            "I Hate Models, Clara Cuvé, Reiner Zonneveld, Rebekah, Un artiste en overflow"]
-        # No output_path = only returns base64, no file saved
+            "I Hate Models, Clara Cuvé, Reiner Zonneveld, Rebekah, Un artiste en overflow"],
+        output_path="output_le_refuge.png"
     )
     print(f"Generated base64 (length: {len(output2)} chars)")
     # Create HTML file to display the image

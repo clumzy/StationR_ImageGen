@@ -87,7 +87,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     def draw_pill(draw, text, font, text_fill, pill_fill, pos=None, 
                   relative_to=None, relative_to_text=None, relative_to_font=None,
                   gap=0, offset=(0, 0), padding_x=40, pill_height=72):
-        """Draw a pill (rounded rectangle) with perfectly centered text."""
+        """Draw a pill (rounded rectangle) with perfectly centered text and anti-aliasing."""
         # Calculate pill dimensions
         text_bbox = font.getbbox(text)
         text_width = text_bbox[2] - text_bbox[0]
@@ -110,12 +110,28 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         pill_x += offset[0]
         pill_y += offset[1]
         
-        # Draw the pill shape
-        draw.rounded_rectangle(
-            [pill_x, pill_y, pill_x + pill_width, pill_y + pill_height],
-            radius=pill_height // 2,
+        # Anti-aliased pill drawing using supersampling
+        scale = 4  # Supersampling scale factor
+        
+        # Create a high-resolution pill image
+        hr_width = pill_width * scale
+        hr_height = pill_height * scale
+        hr_pill = Image.new('RGBA', (hr_width, hr_height), (0, 0, 0, 0))
+        hr_draw = ImageDraw.Draw(hr_pill)
+        
+        # Draw the pill shape at high resolution
+        hr_draw.rounded_rectangle(
+            [0, 0, hr_width, hr_height],
+            radius=(pill_height * scale) // 2,
             fill=pill_fill
         )
+        
+        # Downsample with anti-aliasing
+        pill_img = hr_pill.resize((pill_width, pill_height), Image.LANCZOS)
+        
+        # Paste the anti-aliased pill onto the main image
+        main_img = draw._image
+        main_img.paste(pill_img, (pill_x, pill_y), pill_img)
         
         # Center text in pill
         text_x = pill_x + (pill_width - text_width) // 2 - text_bbox[0]
@@ -171,13 +187,13 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         pill_bg_color = (255, 134, 53, 255)
         colored_pill_bg = (255, 134, 53, 255)
     elif scene_name.lower() == "le refuge":
-        pill_bg_color = (182, 140, 254, 220)
-        colored_pill_bg = (182, 140, 254, 220)
+        pill_bg_color = (182, 140, 254, 255)
+        colored_pill_bg = (182, 140, 254, 255)
     else:
-        pill_bg_color = (255, 255, 255, 220)
-        colored_pill_bg = (255, 255, 255, 220)
-    
-    white_pill_bg = (255, 255, 255, 220)
+        pill_bg_color = (255, 255, 255, 255)
+        colored_pill_bg = (255, 255, 255, 255)
+
+    white_pill_bg = (255, 255, 255, 255)
     
     # Draw all elements
     # 1. Frequency
@@ -308,5 +324,69 @@ if __name__ == "__main__":
         # No output_path = only returns base64, no file saved
     )
     print(f"Generated base64 (length: {len(output2)} chars)")
+    # Create HTML file to display the image
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generated Radio Station Image</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .container {{
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        img {{
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }}
+        .info {{
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Generated Radio Station Image - L'Atrium</h1>
+        <img src="data:image/png;base64,{output2}" alt="Generated radio station image">
+        <div class="info">
+            <h3>Image Details:</h3>
+            <p><strong>Frequency:</strong> 97.3 FM</p>
+            <p><strong>Scene:</strong> House solaire dans L'Atrium</p>
+            <p><strong>Radio:</strong> House solaire et organique</p>
+            <p><strong>Base64 length:</strong> {len(output2)} characters</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+    html_file = "test_image_display.html"
+    with open(html_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    
+    print(f"HTML file created: {html_file}")
+    print("Open this file in your web browser to view the generated image.")
+    
+    # Try to open in default browser (Windows)
+    try:
+        import webbrowser
+        webbrowser.open(html_file)
+        print("Attempting to open in default browser...")
+    except Exception as e:
+        print(f"Could not auto-open browser: {e}")
     
 

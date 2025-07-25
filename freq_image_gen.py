@@ -112,7 +112,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         gap: int = 0,
         offset: tuple = (0, 0),
         padding_x: int = 40,
-        padding_y: int = 18
+        pill_height: int = 72
     ) -> tuple:
         """
         Draws a pill (rounded rectangle) with centered text.
@@ -125,9 +125,8 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         # Measure text size
         text_bbox = font.getbbox(text)
         text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
         pill_width = text_width + 2 * padding_x
-        pill_height = text_height + 2 * padding_y
+        # pill_height is now specified as a parameter
         if pos is not None:
             pill_x, pill_y = pos
         elif relative_to is not None and relative_to_text is not None and relative_to_font is not None:
@@ -156,8 +155,24 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
             draw.ellipse([pill_x, pill_y, pill_x + pill_height, pill_y + pill_height], fill=pill_fill)
             draw.ellipse([pill_x + pill_width - pill_height, pill_y, pill_x + pill_width, pill_y + pill_height], fill=pill_fill)
         # Draw text centered in pill
+        # Center text horizontally
         text_x = pill_x + (pill_width - text_width) // 2 - text_bbox[0]
-        text_y = pill_y + (pill_height - text_height) // 2 - text_bbox[1]
+        
+        # Center text vertically using font metrics for consistent positioning
+        # This ensures text with and without descenders appears at the same height
+        try:
+            # Use font metrics to get consistent baseline positioning
+            ascent, descent = font.getmetrics()
+            # Position baseline so the visual center is centered in pill, with slight downward adjustment
+            baseline_y = pill_y + pill_height // 2 + descent // 2 + 7  # +2 to move text down slightly
+            text_y = baseline_y - ascent
+        except (AttributeError, TypeError):
+            # Fallback: use font size estimation
+            estimated_ascent = int(font.size * 0.8)  # Typical ascent is ~80% of font size
+            estimated_descent = int(font.size * 0.2)  # Typical descent is ~20% of font size
+            baseline_y = pill_y + pill_height // 2 + estimated_descent // 2 + 6  # +2 to move text down slightly
+            text_y = baseline_y - estimated_ascent
+        
         draw.text((text_x, text_y), text, fill=text_fill, font=font)
         return (pill_x, pill_y, pill_x + pill_width, pill_y + pill_height)
 
@@ -194,7 +209,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         scene_name_font = ImageFont.load_default()
     
     try:
-        date_font = ImageFont.truetype(os.path.join("assets","DarkerGrotesque-ExtraBold.ttf"), 80)
+        date_font = ImageFont.truetype(os.path.join("assets","DarkerGrotesque-ExtraBold.ttf"), 69)
     except (OSError, IOError):
         date_font = ImageFont.load_default()
 
@@ -249,7 +264,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         gap=24,
         offset=pill_offset,
         padding_x=30,
-        padding_y=15
+        pill_height=72
     )
 
     date_pos = (66, 520)
@@ -294,7 +309,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         pill_idx = 0
         for line_num, tag_indices in enumerate(lines):
             x = pill_start_x
-            y = pill_start_y + line_num * (tags_font.size + 2 * 15 + pill_gap_y)
+            y = pill_start_y + line_num * (72 + pill_gap_y)
             if len(tag_indices) == 2:
                 # Two pills: try to fit both at full length, only truncate if needed, allow short pill to use less space
                 available_width = max_pill_right - pill_start_x
@@ -335,7 +350,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
                     pill_fill=pill_bg0,
                     pos=(pill_x, y),
                     padding_x=30,
-                    padding_y=15
+                    pill_height=72
                 )
                 pill_x = pill_bbox0[2] + pill_gap_x
                 pill_bbox1 = draw_pill(
@@ -346,7 +361,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
                     pill_fill=pill_bg1,
                     pos=(pill_x, y),
                     padding_x=30,
-                    padding_y=15
+                    pill_height=72
                 )
                 pill_idx += 2
             else:
@@ -373,7 +388,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
                     pill_fill=pill_bg,
                     pos=(x, y),
                     padding_x=30,
-                    padding_y=15
+                    pill_height=72
                 )
                 pill_idx += 1
     

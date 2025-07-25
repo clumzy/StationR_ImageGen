@@ -87,7 +87,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     def draw_pill(draw, text, font, text_fill, pill_fill, pos=None, 
                   relative_to=None, relative_to_text=None, relative_to_font=None,
                   gap=0, offset=(0, 0), padding_x=40, pill_height=72):
-        """Draw a pill (rounded rectangle) with perfectly centered text and anti-aliasing."""
+        """Draw a pill (rounded rectangle) with perfectly centered text."""
         # Calculate pill dimensions
         text_bbox = font.getbbox(text)
         text_width = text_bbox[2] - text_bbox[0]
@@ -110,28 +110,12 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         pill_x += offset[0]
         pill_y += offset[1]
         
-        # Anti-aliased pill drawing using supersampling
-        scale = 4  # Supersampling scale factor
-        
-        # Create a high-resolution pill image
-        hr_width = pill_width * scale
-        hr_height = pill_height * scale
-        hr_pill = Image.new('RGBA', (hr_width, hr_height), (0, 0, 0, 0))
-        hr_draw = ImageDraw.Draw(hr_pill)
-        
-        # Draw the pill shape at high resolution
-        hr_draw.rounded_rectangle(
-            [0, 0, hr_width, hr_height],
-            radius=(pill_height * scale) // 2,
+        # Draw the pill shape
+        draw.rounded_rectangle(
+            [pill_x, pill_y, pill_x + pill_width, pill_y + pill_height],
+            radius=pill_height // 2,
             fill=pill_fill
         )
-        
-        # Downsample with anti-aliasing
-        pill_img = hr_pill.resize((pill_width, pill_height), Image.LANCZOS)
-        
-        # Paste the anti-aliased pill onto the main image
-        main_img = draw._image
-        main_img.paste(pill_img, (pill_x, pill_y), pill_img)
         
         # Center text in pill
         text_x = pill_x + (pill_width - text_width) // 2 - text_bbox[0]
@@ -208,7 +192,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     # 3. Scene name pill (next to genre text)
     draw_pill(draw, scene_name, scene_name_font, DARK_TEXT, pill_bg_color,
               relative_to=scene_genre_pos, relative_to_text=scene_genre_text, 
-              relative_to_font=scene_genre_font, gap=24, offset=(0, 30),
+              relative_to_font=scene_genre_font, gap=24, offset=(0, 32),
               padding_x=25, pill_height=72)
     
     # 4. Date

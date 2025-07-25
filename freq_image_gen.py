@@ -1,26 +1,29 @@
 import os
 import base64
+import random
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 from typing import List
 from typing import Tuple
 
 def generate_freq_image(frequency: str, scene_genre: str, scene_name: str, 
-                       radio_station_name: str, tags: List[str], 
+                       radio_station_name: str, verbatims: List[str], tags: List[str], artists: List[str],
                        output_path: str = None, assets_dir: str = "assets") -> str:
     """
-    Génère une image, avec informations de fréquence, genre, nom de scène, radio et tags, sur un fond spécifique à la scène.
+    Génère une image, avec informations de fréquence, genre, nom de scène, radio et différents types de pills.
 
     Arguments :
         frequency : (str) Fréquence à afficher (ex: "97.3")
         scene_genre : (str) Genre musical de la scène (ex: "House solaire")
         scene_name : (str) Nom de la scène ("Le Refuge" ou "L'Atrium")
         radio_station_name : (str) Nom de la radio ou de la programmation
-        tags : (List[str]) Liste de 5 tags descriptifs affichés sous forme de "pills"
+        verbatims : (List[str]) Liste de verbatims (fond gris)
+        tags : (List[str]) Liste de tags (fond blanc)
+        artists : (List[str]) Liste d'artistes (fond coloré selon la scène)
         output_path : (str, optionnel) Chemin de sauvegarde de l'image générée. Si None, un nom par défaut est utilisé.
         assets_dir : (str, optionnel) Dossier contenant les assets (images et polices). Par défaut "assets".
 
-    Retourne :
+    Returns :
         str : Image encodée en base64
     """
     # Helper functions 
@@ -164,20 +167,21 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     # Colors
     WHITE = (255, 255, 255, 255)
     BLACK = (0, 0, 0, 255)
-    DARK_TEXT = (31, 41, 55, 255)
+    GREY = (113, 102, 102, 255)
     
     # Scene-specific colors
     if scene_name.lower() == "l'atrium":
         pill_bg_color = (255, 134, 53, 255)
-        colored_pill_bg = (255, 134, 53, 255)
+        colored_pill_bg = (255, 134, 53, 255)  # Orange for artists
     elif scene_name.lower() == "le refuge":
         pill_bg_color = (182, 140, 254, 255)
-        colored_pill_bg = (182, 140, 254, 255)
+        colored_pill_bg = (182, 140, 254, 255)  # Purple for artists
     else:
         pill_bg_color = (255, 255, 255, 255)
         colored_pill_bg = (255, 255, 255, 255)
 
-    white_pill_bg = (255, 255, 255, 255)
+    white_pill_bg = (255, 255, 255, 255)  # White for tags
+    grey_pill_bg = GREY  # Grey for verbatims
     
     # Draw all elements
     # 1. Frequency
@@ -190,7 +194,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     draw.text(scene_genre_pos, scene_genre_text, fill=BLACK, font=scene_genre_font)
     
     # 3. Scene name pill (next to genre text)
-    draw_pill(draw, scene_name, scene_name_font, DARK_TEXT, pill_bg_color,
+    draw_pill(draw, scene_name, scene_name_font, BLACK, pill_bg_color,
               relative_to=scene_genre_pos, relative_to_text=scene_genre_text, 
               relative_to_font=scene_genre_font, gap=24, offset=(0, 32),
               padding_x=25, pill_height=72)
@@ -201,66 +205,91 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     # 5. Radio station name (with wrapping, max 3 lines)
     draw_wrapped_text(draw, radio_station_name, radio_station_font, WHITE,
                      (66, 800), max_width=width-200, line_spacing=8, tracking=-7, max_lines=3)
-    # 6. Tags as pills (3 lines: 2+2+1, with pills 2&3 colored)
-    if tags and len(tags) == 5:
+    # 6. Mixed pills (verbatims, tags, artists) across max 4 lines
+    all_pills = []
+    
+    # Add verbatims (grey background)
+    for verbatim in verbatims:
+        all_pills.append(('verbatim', verbatim, grey_pill_bg))
+    
+    # Add tags (white background)
+    for tag in tags:
+        all_pills.append(('tag', tag, white_pill_bg))
+    
+    # Add artists (colored background)
+    for artist in artists:
+        all_pills.append(('artist', artist, colored_pill_bg))
+    
+    # Mix the pills randomly with a fixed seed for reproducibility
+    random.seed(420)
+    random.shuffle(all_pills)
+    
+    if all_pills:
         pill_start_x = 66
         pill_start_y = 1300
         pill_gap_y = 24
         pill_gap_x = 24
         max_pill_right = width - 66
         pill_height = 78
+        max_lines = 4
         
-        # Tag layout: [0,1], [2,3], [4] with pills 1&2 colored (indices 1&2)
-        lines = [[0,1], [2,3], [4]]
-        pill_idx = 0
+        # Distribute pills across lines trying to fit as many as possible per line
+        lines = []
+        current_line = []
+        current_line_width = 0
         
-        for line_num, tag_indices in enumerate(lines):
+        for pill_type, pill_text, pill_bg in all_pills:
+            # Calculate pill width
+            text_width = tags_font.getbbox(pill_text)[2] - tags_font.getbbox(pill_text)[0]
+            pill_width = text_width + 50  # 25px padding on each side
+            
+            # Check if this pill fits on current line
+            needed_width = pill_width
+            if current_line:
+                needed_width += pill_gap_x
+            
+            if current_line_width + needed_width <= (max_pill_right - pill_start_x) and len(lines) < max_lines:
+                # Fits on current line
+                current_line.append((pill_type, pill_text, pill_bg))
+                current_line_width += needed_width
+            else:
+                # Start new line if we haven't reached max lines
+                if current_line:
+                    lines.append(current_line)
+                    current_line = []
+                    current_line_width = 0
+                
+                if len(lines) < max_lines:
+                    current_line.append((pill_type, pill_text, pill_bg))
+                    current_line_width = pill_width
+                else:
+                    # We've reached max lines, stop adding pills
+                    break
+        
+        # Add the last line if it has pills
+        if current_line and len(lines) < max_lines:
+            lines.append(current_line)
+        
+        # Draw the pills
+        for line_num, line_pills in enumerate(lines):
             y = pill_start_y + line_num * (pill_height + pill_gap_y)
             x = pill_start_x
             
-            if len(tag_indices) == 2:
-                # Two pills on this line
-                tag0, tag1 = tags[tag_indices[0]], tags[tag_indices[1]]
-                bg0 = colored_pill_bg if pill_idx == 1 or pill_idx == 2 else white_pill_bg
-                bg1 = colored_pill_bg if pill_idx + 1 == 1 or pill_idx + 1 == 2 else white_pill_bg
+            for pill_type, pill_text, pill_bg in line_pills:
+                # Truncate text if needed to fit
+                display_text = pill_text
+                max_text_width = max_pill_right - x - 50  # Account for padding
                 
-                # Fit both pills with truncation if needed
-                display_tag0, display_tag1 = tag0, tag1
-                available_width = max_pill_right - pill_start_x
+                while (tags_font.getbbox(display_text)[2] - tags_font.getbbox(display_text)[0] > max_text_width 
+                       and len(display_text) > 6):
+                    display_text = display_text[:-4] + '...'
                 
-                while True:
-                    w0 = tags_font.getbbox(display_tag0)[2] - tags_font.getbbox(display_tag0)[0] + 60
-                    w1 = tags_font.getbbox(display_tag1)[2] - tags_font.getbbox(display_tag1)[0] + 60
-                    if w0 + w1 + pill_gap_x <= available_width:
-                        break
-                    # Truncate the longer one
-                    if w0 >= w1 and len(display_tag0) > 6:
-                        display_tag0 = display_tag0[:-4] + '...'
-                    elif len(display_tag1) > 6:
-                        display_tag1 = display_tag1[:-4] + '...'
-                    else:
-                        break
+                # Draw the pill
+                bbox = draw_pill(draw, display_text, tags_font, BLACK, pill_bg,
+                               pos=(x, y), padding_x=25, pill_height=pill_height)
                 
-                # Draw both pills
-                bbox0 = draw_pill(draw, display_tag0, tags_font, DARK_TEXT, bg0, 
-                                pos=(x, y), padding_x=25, pill_height=pill_height)
-                draw_pill(draw, display_tag1, tags_font, DARK_TEXT, bg1,
-                        pos=(bbox0[2] + pill_gap_x, y), padding_x=25, pill_height=pill_height)
-                pill_idx += 2
-            else:
-                # Single pill
-                tag = tags[tag_indices[0]]
-                bg = colored_pill_bg if pill_idx == 1 or pill_idx == 2 else white_pill_bg
-                
-                # Truncate if needed
-                display_tag = tag
-                max_width = max_pill_right - x - 60
-                while tags_font.getbbox(display_tag)[2] - tags_font.getbbox(display_tag)[0] > max_width and len(display_tag) > 6:
-                    display_tag = display_tag[:-4] + '...'
-                
-                draw_pill(draw, display_tag, tags_font, DARK_TEXT, bg,
-                        pos=(x, y), padding_x=30, pill_height=pill_height)
-                pill_idx += 1
+                # Move x position for next pill
+                x = bbox[2] + pill_gap_x
     
     # Convert image to base64
     buffer = BytesIO()
@@ -283,12 +312,9 @@ if __name__ == "__main__":
         scene_genre="House solaire",
         scene_name="L'Atrium",
         radio_station_name="House solaire et organique",
-        tags=[
-            "Open-air au coucher du soleil", 
-            "Flottant et groovy", 
-            "Danser ensemble", 
-            "Une basse funky",
-            "Dom Dolla, The Blessed Madonna, X-coast, Ollie Lishman"],
+        verbatims=["Open-air au coucher du soleil", "Flottant et groovy"],
+        tags=["Défensif", "Paisible", "Révélateur", "Percutant", "Hypnotique"],
+        artists=["Dom Dolla", "The Blessed Madonna", "X-coast", "Ollie Lishman"],
         output_path="output_latrium.png"  # Will save to file AND return base64
     )
     print(f"Generated base64 (length: {len(output1)} chars)")
@@ -299,12 +325,9 @@ if __name__ == "__main__":
         scene_genre="Techno sombre",
         scene_name="Le Refuge",
         radio_station_name="Techno hypnotique et mentale",
-        tags=[
-            "Un club sombre", 
-            "Il faut que je me dépense", 
-            "Me perdre dans la masse",
-            "Un kick sec et rapide",
-            "I Hate Models, Clara Cuvé, Reiner Zonneveld, Rebekah, Un artiste en overflow"],
+        verbatims=["Un club sombre", "Il faut que je me dépense"],
+        tags=["Industriel", "Énergique", "Nocturne", "Intense", "Transcendant"],
+        artists=["I Hate Models", "Clara Cuvé", "Reiner Zonneveld", "Rebekah"],
         output_path="output_le_refuge.png"
     )
     print(f"Generated base64 (length: {len(output2)} chars)")

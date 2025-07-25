@@ -172,16 +172,8 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     # Scene-specific colors
     if scene_name.lower() == "l'atrium":
         pill_bg_color = (255, 134, 53, 255)
-        colored_pill_bg = (255, 134, 53, 255)  # Orange for artists
     elif scene_name.lower() == "le refuge":
         pill_bg_color = (182, 140, 254, 255)
-        colored_pill_bg = (182, 140, 254, 255)  # Purple for artists
-    else:
-        pill_bg_color = (255, 255, 255, 255)
-        colored_pill_bg = (255, 255, 255, 255)
-
-    white_pill_bg = (255, 255, 255, 255)  # White for tags
-    grey_pill_bg = GREY  # Grey for verbatims
     
     # Draw all elements
     # 1. Frequency
@@ -210,15 +202,15 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     
     # Add verbatims (grey background)
     for verbatim in verbatims:
-        all_pills.append(('verbatim', verbatim, grey_pill_bg))
+        all_pills.append(('verbatim', verbatim, GREY))
     
     # Add tags (white background)
     for tag in tags:
-        all_pills.append(('tag', tag, white_pill_bg))
+        all_pills.append(('tag', tag, WHITE))
     
     # Add artists (colored background)
     for artist in artists:
-        all_pills.append(('artist', artist, colored_pill_bg))
+        all_pills.append(('artist', artist, pill_bg_color))
     
     # Mix the pills randomly with a fixed seed for reproducibility
     random.seed(420)

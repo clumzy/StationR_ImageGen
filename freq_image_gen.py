@@ -1,156 +1,7 @@
-
-"""
-Function arguments :
-- frequency (string)
-- scene_genre (string)
-- scene_name (string)
-- radio_station_name (string)
-- tags (list(string))
-
-The idea is that there will be 2 scene_names : "Le Refuge" and "L'Atrium"
-if it's atrium it's the orange picture (assets/orange.png)
-and if it's refuge its the purple picture (assets/purple.png)
-I want a function that takes in input all that is listed above, and using PILLOW
-writes it on the image specified above
-"""
-
 import os
 from PIL import Image, ImageDraw, ImageFont
 from typing import List
 from typing import Tuple
-
-def draw_text_with_tracking(
-    draw: ImageDraw.ImageDraw,
-    position: Tuple[int, int],
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    fill: Tuple[int, int, int, int],
-    tracking: int
-) -> None:
-    """
-    Draw text with custom letter spacing (tracking).
-    Args:
-        draw: ImageDraw.Draw object
-        position: (x, y) tuple
-        text: string to draw
-        font: ImageFont instance
-        fill: color tuple
-        tracking: int, additional space (can be negative) between characters
-    """
-    x, y = position
-    for char in text:
-        draw.text((x, y), char, fill=fill, font=font)
-        # Use advance width for accurate horizontal positioning
-        try:
-            # Pillow >= 8.0.0
-            char_width = font.getlength(char)
-        except AttributeError:
-            # Fallback for older Pillow
-            char_width = font.getmask(char).size[0]
-        x += char_width + tracking
-
-def draw_wrapped_text(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    fill: tuple,
-    pos: tuple,
-    max_width: int,
-    line_spacing: int = 8,
-    tracking: int = None
-) -> None:
-    """
-    Draws text with word wrapping at the given position, using the provided font and color.
-    Each line will not exceed max_width in pixels.
-    """
-    words = text.split()
-    lines = []
-    current_line = []
-    for word in words:
-        test_line = ' '.join(current_line + [word])
-        try:
-            test_line_width = font.getbbox(test_line)[2] - font.getbbox(test_line)[0]
-        except AttributeError:
-            test_line_width = font.getsize(test_line)[0]
-        if test_line_width <= max_width:
-            current_line.append(word)
-        else:
-            if current_line:
-                lines.append(' '.join(current_line))
-                current_line = [word]
-            else:
-                lines.append(word)
-    if current_line:
-        lines.append(' '.join(current_line))
-    for i, line in enumerate(lines):
-        line_pos = (pos[0], pos[1] + i * (font.size + line_spacing))
-        if tracking is not None:
-            draw_text_with_tracking(draw, line_pos, line, font, fill, tracking)
-        else:
-            draw.text(line_pos, line, fill=fill, font=font)
-
-
-def draw_pill(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    text_fill: tuple,
-    pill_fill: tuple,
-    pos: tuple = None,
-    relative_to: tuple = None,
-    relative_to_text: str = None,
-    relative_to_font: ImageFont.FreeTypeFont = None,
-    gap: int = 0,
-    offset: tuple = (0, 0),
-    padding_x: int = 40,
-    padding_y: int = 18
-) -> tuple:
-    """
-    Draws a pill (rounded rectangle) with centered text.
-    - If pos is given, places pill absolutely at pos (top-left of pill).
-    - If relative_to and relative_to_text and relative_to_font are given, places pill to the right of the text, with gap and vertical centering.
-    - If only relative_to is given, places pill to the right of the given (x, y) position.
-    - offset is always added to the final (x, y).
-    Returns the bounding box (x0, y0, x1, y1) of the pill.
-    """
-    # Measure text size
-    text_bbox = font.getbbox(text)
-    text_width = text_bbox[2] - text_bbox[0]
-    text_height = text_bbox[3] - text_bbox[1]
-    pill_width = text_width + 2 * padding_x
-    pill_height = text_height + 2 * padding_y
-    if pos is not None:
-        pill_x, pill_y = pos
-    elif relative_to is not None and relative_to_text is not None and relative_to_font is not None:
-        # Place to the right of the text, with gap and vertical centering
-        ref_bbox = relative_to_font.getbbox(relative_to_text)
-        ref_width = ref_bbox[2] - ref_bbox[0]
-        ref_height = ref_bbox[3] - ref_bbox[1]
-        pill_x = relative_to[0] + ref_width + gap
-        pill_y = relative_to[1] + (ref_height - pill_height) // 2
-    elif relative_to is not None:
-        pill_x = relative_to[0]
-        pill_y = relative_to[1]
-    else:
-        pill_x, pill_y = (0, 0)
-    pill_x += offset[0]
-    pill_y += offset[1]
-    # Draw rounded rectangle (Pillow >= 8.2.0)
-    try:
-        draw.rounded_rectangle(
-            [pill_x, pill_y, pill_x + pill_width, pill_y + pill_height],
-            radius=pill_height // 2,
-            fill=pill_fill
-        )
-    except AttributeError:
-        draw.rectangle([pill_x + pill_height//2, pill_y, pill_x + pill_width - pill_height//2, pill_y + pill_height], fill=pill_fill)
-        draw.ellipse([pill_x, pill_y, pill_x + pill_height, pill_y + pill_height], fill=pill_fill)
-        draw.ellipse([pill_x + pill_width - pill_height, pill_y, pill_x + pill_width, pill_y + pill_height], fill=pill_fill)
-    # Draw text centered in pill
-    text_x = pill_x + (pill_width - text_width) // 2 - text_bbox[0]
-    text_y = pill_y + (pill_height - text_height) // 2 - text_bbox[1]
-    draw.text((text_x, text_y), text, fill=text_fill, font=font)
-    return (pill_x, pill_y, pill_x + pill_width, pill_y + pill_height)
 
 def generate_freq_image(frequency: str, scene_genre: str, scene_name: str, 
                        radio_station_name: str, tags: List[str], 
@@ -175,6 +26,141 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         - Les tags sont affichés en 3 lignes de pills, avec gestion automatique du texte et de la couleur selon la scène.
         - Nécessite les fichiers d'assets (images et polices) dans le dossier "assets".
     """
+    # Helper functions 
+    def draw_text_with_tracking(
+        draw: ImageDraw.ImageDraw,
+        position: Tuple[int, int],
+        text: str,
+        font: ImageFont.FreeTypeFont,
+        fill: Tuple[int, int, int, int],
+        tracking: int
+    ) -> None:
+        """
+        Draw text with custom letter spacing (tracking).
+        Args:
+            draw: ImageDraw.Draw object
+            position: (x, y) tuple
+            text: string to draw
+            font: ImageFont instance
+            fill: color tuple
+            tracking: int, additional space (can be negative) between characters
+        """
+        x, y = position
+        for char in text:
+            draw.text((x, y), char, fill=fill, font=font)
+            # Use advance width for accurate horizontal positioning
+            try:
+                # Pillow >= 8.0.0
+                char_width = font.getlength(char)
+            except AttributeError:
+                # Fallback for older Pillow
+                char_width = font.getmask(char).size[0]
+            x += char_width + tracking
+        return
+
+    def draw_wrapped_text(
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font: ImageFont.FreeTypeFont,
+        fill: tuple,
+        pos: tuple,
+        max_width: int,
+        line_spacing: int = 8,
+        tracking: int = None
+    ) -> None:
+        """
+        Draws text with word wrapping at the given position, using the provided font and color.
+        Each line will not exceed max_width in pixels.
+        """
+        words = text.split()
+        lines = []
+        current_line = []
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            try:
+                test_line_width = font.getbbox(test_line)[2] - font.getbbox(test_line)[0]
+            except AttributeError:
+                test_line_width = font.getsize(test_line)[0]
+            if test_line_width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+        if current_line:
+            lines.append(' '.join(current_line))
+        for i, line in enumerate(lines):
+            line_pos = (pos[0], pos[1] + i * (font.size + line_spacing))
+            if tracking is not None:
+                draw_text_with_tracking(draw, line_pos, line, font, fill, tracking)
+            else:
+                draw.text(line_pos, line, fill=fill, font=font)
+        return
+    
+    def draw_pill(
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font: ImageFont.FreeTypeFont,
+        text_fill: tuple,
+        pill_fill: tuple,
+        pos: tuple = None,
+        relative_to: tuple = None,
+        relative_to_text: str = None,
+        relative_to_font: ImageFont.FreeTypeFont = None,
+        gap: int = 0,
+        offset: tuple = (0, 0),
+        padding_x: int = 40,
+        padding_y: int = 18
+    ) -> tuple:
+        """
+        Draws a pill (rounded rectangle) with centered text.
+        - If pos is given, places pill absolutely at pos (top-left of pill).
+        - If relative_to and relative_to_text and relative_to_font are given, places pill to the right of the text, with gap and vertical centering.
+        - If only relative_to is given, places pill to the right of the given (x, y) position.
+        - offset is always added to the final (x, y).
+        Returns the bounding box (x0, y0, x1, y1) of the pill.
+        """
+        # Measure text size
+        text_bbox = font.getbbox(text)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        pill_width = text_width + 2 * padding_x
+        pill_height = text_height + 2 * padding_y
+        if pos is not None:
+            pill_x, pill_y = pos
+        elif relative_to is not None and relative_to_text is not None and relative_to_font is not None:
+            # Place to the right of the text, with gap and vertical centering
+            ref_bbox = relative_to_font.getbbox(relative_to_text)
+            ref_width = ref_bbox[2] - ref_bbox[0]
+            ref_height = ref_bbox[3] - ref_bbox[1]
+            pill_x = relative_to[0] + ref_width + gap
+            pill_y = relative_to[1] + (ref_height - pill_height) // 2
+        elif relative_to is not None:
+            pill_x = relative_to[0]
+            pill_y = relative_to[1]
+        else:
+            pill_x, pill_y = (0, 0)
+        pill_x += offset[0]
+        pill_y += offset[1]
+        # Draw rounded rectangle (Pillow >= 8.2.0)
+        try:
+            draw.rounded_rectangle(
+                [pill_x, pill_y, pill_x + pill_width, pill_y + pill_height],
+                radius=pill_height // 2,
+                fill=pill_fill
+            )
+        except AttributeError:
+            draw.rectangle([pill_x + pill_height//2, pill_y, pill_x + pill_width - pill_height//2, pill_y + pill_height], fill=pill_fill)
+            draw.ellipse([pill_x, pill_y, pill_x + pill_height, pill_y + pill_height], fill=pill_fill)
+            draw.ellipse([pill_x + pill_width - pill_height, pill_y, pill_x + pill_width, pill_y + pill_height], fill=pill_fill)
+        # Draw text centered in pill
+        text_x = pill_x + (pill_width - text_width) // 2 - text_bbox[0]
+        text_y = pill_y + (pill_height - text_height) // 2 - text_bbox[1]
+        draw.text((text_x, text_y), text, fill=text_fill, font=font)
+        return (pill_x, pill_y, pill_x + pill_width, pill_y + pill_height)
+
     # Determine which background image to use
     if scene_name.lower() == "l'atrium":
         bg_image_path = os.path.join("assets", "orange.png")

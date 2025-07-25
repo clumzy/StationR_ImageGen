@@ -29,7 +29,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
             draw.text((x, y), char, fill=fill, font=font)
             x += font.getlength(char) + tracking
 
-    def draw_wrapped_text(draw, text, font, fill, pos, max_width, line_spacing=8, tracking=None):
+    def draw_wrapped_text(draw, text, font, fill, pos, max_width, line_spacing=8, tracking=None, max_lines=None):
         """Draw text with word wrapping."""
         words = text.split()
         lines = []
@@ -51,9 +51,33 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         if current_line:
             lines.append(' '.join(current_line))
         
+        # Truncate to max_lines if specified
+        if max_lines and len(lines) > max_lines:
+            lines = lines[:max_lines]
+            # Add ellipsis to the last line if truncated
+            last_line = lines[-1]
+            while True:
+                test_line = last_line + '...'
+                test_width = font.getbbox(test_line)[2] - font.getbbox(test_line)[0]
+                if test_width <= max_width or len(last_line) <= 3:
+                    lines[-1] = (last_line, '...')  # Store as tuple to indicate ellipsis
+                    break
+                last_line = last_line[:-1]
+        
         for i, line in enumerate(lines):
             line_pos = (pos[0], pos[1] + i * (font.size + line_spacing))
-            if tracking is not None:
+            if isinstance(line, tuple):
+                # Handle line with ellipsis (no tracking for ellipsis)
+                text_part, ellipsis = line
+                if tracking is not None:
+                    draw_text_with_tracking(draw, line_pos, text_part, font, fill, tracking)
+                    # Calculate position for ellipsis after the tracked text
+                    text_width = sum(font.getlength(char) + tracking for char in text_part[:-1]) + font.getlength(text_part[-1]) if text_part else 0
+                    ellipsis_pos = (line_pos[0] + text_width, line_pos[1])
+                    draw.text(ellipsis_pos, ellipsis, fill=fill, font=font)
+                else:
+                    draw.text(line_pos, text_part + ellipsis, fill=fill, font=font)
+            elif tracking is not None:
                 draw_text_with_tracking(draw, line_pos, line, font, fill, tracking)
             else:
                 draw.text(line_pos, line, fill=fill, font=font)
@@ -172,9 +196,9 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
     # 4. Date
     draw.text((66, 520), "le 31 juillet à La Rotonde", fill=BLACK, font=date_font)
     
-    # 5. Radio station name (with wrapping)
+    # 5. Radio station name (with wrapping, max 3 lines)
     draw_wrapped_text(draw, radio_station_name, radio_station_font, WHITE,
-                     (66, 800), max_width=width-200, line_spacing=8, tracking=-8)
+                     (66, 800), max_width=width-200, line_spacing=8, tracking=-7, max_lines=3)
     # 6. Tags as pills (3 lines: 2+2+1, with pills 2&3 colored)
     if tags and len(tags) == 5:
         pill_start_x = 66
@@ -182,7 +206,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         pill_gap_y = 24
         pill_gap_x = 24
         max_pill_right = width - 66
-        pill_height = 68
+        pill_height = 78
         
         # Tag layout: [0,1], [2,3], [4] with pills 1&2 colored (indices 1&2)
         lines = [[0,1], [2,3], [4]]

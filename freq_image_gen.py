@@ -1,4 +1,6 @@
 import os
+import base64
+from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 from typing import List
 from typing import Tuple
@@ -19,7 +21,7 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
         assets_dir : (str, optionnel) Dossier contenant les assets (images et polices). Par défaut "assets".
 
     Retourne :
-        str : Chemin du fichier image généré
+        str : Image encodée en base64
     """
     # Helper functions 
     def draw_text_with_tracking(draw, position, text, font, fill, tracking):
@@ -260,15 +262,17 @@ def generate_freq_image(frequency: str, scene_genre: str, scene_name: str,
                         pos=(x, y), padding_x=30, pill_height=pill_height)
                 pill_idx += 1
     
-    # Determine output path
-    if output_path is None:
-        scene_safe_name = scene_name.lower().replace("'", "").replace(" ", "_")
-        output_path = f"output_{scene_safe_name}.png"
+    # Convert image to base64
+    buffer = BytesIO()
+    image.save(buffer, format='PNG')
+    buffer.seek(0)
+    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     
-    # Save the image
-    image.save(output_path)
+    # Optionally save to file if output_path is provided
+    if output_path is not None:
+        image.save(output_path)
     
-    return output_path
+    return image_base64
 
 
 # Example usage
@@ -284,11 +288,12 @@ if __name__ == "__main__":
             "Flottant et groovy", 
             "Danser ensemble", 
             "Une basse funky",
-            "Dom Dolla, The Blessed Madonna, X-coast, Ollie Lishman"]
+            "Dom Dolla, The Blessed Madonna, X-coast, Ollie Lishman"],
+        output_path="output_latrium.png"  # Will save to file AND return base64
     )
-    print(f"Generated: {output1}")
+    print(f"Generated base64 (length: {len(output1)} chars)")
     
-    # Example for Le Refuge (purple background)
+    # Example for Le Refuge (purple background) - no file output
     output2 = generate_freq_image(
         frequency="108.9",
         scene_genre="Techno sombre",
@@ -300,7 +305,8 @@ if __name__ == "__main__":
             "Me perdre dans la masse",
             "Un kick sec et rapide",
             "I Hate Models, Clara Cuvé, Reiner Zonneveld, Rebekah, Un artiste en overflow"]
+        # No output_path = only returns base64, no file saved
     )
-    print(f"Generated: {output2}")
+    print(f"Generated base64 (length: {len(output2)} chars)")
     
 
